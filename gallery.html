@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lumière — Photo Gallery</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --cream: #f6f2eb;
+      --dark: #1a1714;
+      --muted: #8a7f72;
+      --accent: #c9a97a;
+      --border: rgba(26,23,20,0.12);
+    }
+
+    body {
+      background: var(--cream);
+      color: var(--dark);
+      font-family: 'DM Mono', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Grain overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      background-size: 200px 200px;
+      pointer-events: none;
+      z-index: 100;
+      opacity: 0.5;
+    }
+
+    /* Header */
+    header {
+      padding: 4rem 5vw 3rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      border-bottom: 0.5px solid var(--border);
+      position: relative;
+    }
+
+    header::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 5vw;
+      width: 80px;
+      height: 2px;
+      background: var(--accent);
+    }
+
+    .site-label {
+      font-size: 10px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-size: clamp(3rem, 8vw, 6rem);
+      line-height: 0.92;
+      letter-spacing: -0.02em;
+      color: var(--dark);
+    }
+
+    h1 em {
+      font-style: italic;
+      color: var(--muted);
+    }
+
+    .header-meta {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      margin-top: 1.5rem;
+    }
+
+    .photo-count {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+    }
+
+    /* Filter bar */
+    nav {
+      padding: 1.5rem 5vw;
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      border-bottom: 0.5px solid var(--border);
+    }
+
+    .filter-btn {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border: 0.5px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-radius: 2px;
+    }
+
+    .filter-btn:hover { color: var(--dark); border-color: var(--dark); }
+    .filter-btn.active {
+      background: var(--dark);
+      color: var(--cream);
+      border-color: var(--dark);
+    }
+
+    /* Gallery grid */
+    .gallery {
+      padding: 3rem 5vw;
+      columns: 3 280px;
+      column-gap: 1.5rem;
+    }
+
+    .photo-item {
+      break-inside: avoid;
+      margin-bottom: 1.5rem;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      background: #e8e3d8;
+      transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    .photo-item:hover { transform: scale(0.985); }
+
+    .photo-item img {
+      display: block;
+      width: 100%;
+      height: auto;
+      transition: filter 0.4s ease;
+      filter: saturate(0.85) contrast(1.05);
+    }
+
+    .photo-item:hover img { filter: saturate(1) contrast(1.08); }
+
+    .photo-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(26,23,20,0.7) 0%, transparent 50%);
+      opacity: 0;
+      transition: opacity 0.35s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 1.2rem;
+    }
+
+    .photo-item:hover .photo-overlay { opacity: 1; }
+
+    .photo-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-size: 1.1rem;
+      color: var(--cream);
+      letter-spacing: 0.01em;
+    }
+
+    .photo-tag {
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-top: 3px;
+    }
+
+    /* Lightbox */
+    #lightbox {
+      position: fixed;
+      inset: 0;
+      background: rgba(26,23,20,0.96);
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    #lightbox.open { display: flex; }
+
+    #lightbox img {
+      max-width: min(90vw, 900px);
+      max-height: 85vh;
+      object-fit: contain;
+      filter: saturate(0.9) contrast(1.05);
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+
+    #lightbox-close {
+      position: absolute;
+      top: 1.5rem;
+      right: 2rem;
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(246,242,235,0.5);
+      background: none;
+      border: none;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    #lightbox-close:hover { color: var(--cream); }
+
+    #lightbox-caption {
+      position: absolute;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+    }
+
+    #lightbox-caption .lb-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-size: 1.3rem;
+      color: var(--cream);
+      font-style: italic;
+    }
+
+    #lightbox-caption .lb-meta {
+      font-size: 10px;
+      color: rgba(246,242,235,0.4);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* Footer */
+    footer {
+      padding: 3rem 5vw 4rem;
+      border-top: 0.5px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    footer p {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+    }
+
+    footer .accent-line {
+      width: 40px;
+      height: 1px;
+      background: var(--accent);
+    }
+
+    @media (max-width: 600px) {
+      .gallery { columns: 1 220px; }
+      h1 { font-size: 3rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span class="site-label">Portfolio — 2024</span>
+    <h1>Lu<em>mière</em></h1>
+    <div class="header-meta">
+      <span class="photo-count" id="count-label">24 photographs</span>
+    </div>
+  </header>
+
+  <nav id="filters">
+    <button class="filter-btn active" data-filter="all">All</button>
+    <button class="filter-btn" data-filter="landscape">Landscape</button>
+    <button class="filter-btn" data-filter="portrait">Portrait</button>
+    <button class="filter-btn" data-filter="urban">Urban</button>
+    <button class="filter-btn" data-filter="abstract">Abstract</button>
+  </nav>
+
+  <main class="gallery" id="gallery"></main>
+
+  <div id="lightbox">
+    <button id="lightbox-close">✕ close</button>
+    <img id="lightbox-img" src="" alt="" />
+    <div id="lightbox-caption">
+      <div class="lb-title" id="lb-title"></div>
+      <div class="lb-meta" id="lb-meta"></div>
+    </div>
+  </div>
+
+  <footer>
+    <p>© 2024 Lumière — All rights reserved</p>
+    <div class="accent-line"></div>
+    <p>Curated light &amp; shadow</p>
+  </footer>
+
+  <script>
+    const photos = [
+      { title: "Fog over the valley", tag: "landscape", size: "800/600", seed: 10, ratio: "4/3" },
+      { title: "Last light, Lisbon", tag: "urban", size: "800/1000", seed: 20, ratio: "4/5" },
+      { title: "Reverie", tag: "portrait", size: "800/900", seed: 30, ratio: "8/9" },
+      { title: "Salt flats at dusk", tag: "landscape", size: "800/500", seed: 40, ratio: "16/10" },
+      { title: "Stairwell, Prague", tag: "urban", size: "800/1050", seed: 50, ratio: "4/5" },
+      { title: "Form study II", tag: "abstract", size: "800/800", seed: 60, ratio: "1/1" },
+      { title: "Morning, the Algarve", tag: "landscape", size: "800/520", seed: 70, ratio: "16/10" },
+      { title: "Quiet", tag: "portrait", size: "800/950", seed: 80, ratio: "4/5" },
+      { title: "Iron lattice", tag: "urban", size: "800/700", seed: 90, ratio: "4/3" },
+      { title: "Dissolution", tag: "abstract", size: "800/800", seed: 100, ratio: "1/1" },
+      { title: "Ridge at dawn", tag: "landscape", size: "800/480", seed: 110, ratio: "5/3" },
+      { title: "Neon, Seoul", tag: "urban", size: "800/1000", seed: 120, ratio: "4/5" },
+      { title: "Repose", tag: "portrait", size: "800/1000", seed: 130, ratio: "4/5" },
+      { title: "Tide pool", tag: "landscape", size: "800/600", seed: 140, ratio: "4/3" },
+      { title: "Passage", tag: "urban", size: "800/750", seed: 150, ratio: "4/3" },
+      { title: "Frequency", tag: "abstract", size: "800/800", seed: 160, ratio: "1/1" },
+      { title: "Snowfield", tag: "landscape", size: "800/533", seed: 170, ratio: "3/2" },
+      { title: "Study in gold", tag: "portrait", size: "800/1000", seed: 180, ratio: "4/5" },
+      { title: "Underpass, Tokyo", tag: "urban", size: "800/700", seed: 190, ratio: "4/3" },
+      { title: "Refraction III", tag: "abstract", size: "800/600", seed: 200, ratio: "4/3" },
+      { title: "Dolomites, late summer", tag: "landscape", size: "800/533", seed: 210, ratio: "3/2" },
+      { title: "Golden hour, Seville", tag: "urban", size: "800/900", seed: 220, ratio: "8/9" },
+      { title: "The light between", tag: "portrait", size: "800/1000", seed: 230, ratio: "4/5" },
+      { title: "Erosion study", tag: "abstract", size: "800/600", seed: 240, ratio: "4/3" },
+    ];
+
+    const gallery = document.getElementById('gallery');
+    const lightbox = document.getElementById('lightbox');
+    const lbImg = document.getElementById('lightbox-img');
+    const lbTitle = document.getElementById('lb-title');
+    const lbMeta = document.getElementById('lb-meta');
+    const countLabel = document.getElementById('count-label');
+
+    function renderGallery(filter) {
+      gallery.innerHTML = '';
+      const filtered = filter === 'all' ? photos : photos.filter(p => p.tag === filter);
+      countLabel.textContent = `${filtered.length} photograph${filtered.length !== 1 ? 's' : ''}`;
+
+      filtered.forEach((p, i) => {
+        const [w, h] = p.size.split('/');
+        const src = `https://picsum.photos/seed/${p.seed}/${w}/${h}`;
+        const item = document.createElement('div');
+        item.className = 'photo-item';
+        item.dataset.filter = p.tag;
+        item.style.animationDelay = `${i * 40}ms`;
+        item.innerHTML = `
+          <img src="${src}" alt="${p.title}" loading="lazy" />
+          <div class="photo-overlay">
+            <span class="photo-title">${p.title}</span>
+            <span class="photo-tag">${p.tag}</span>
+          </div>
+        `;
+        item.addEventListener('click', () => openLightbox(src, p.title, p.tag, i + 1));
+        gallery.appendChild(item);
+      });
+    }
+
+    function openLightbox(src, title, tag, num) {
+      lbImg.src = src;
+      lbImg.alt = title;
+      lbTitle.textContent = title;
+      lbMeta.textContent = `${tag} · no. ${String(num).padStart(2, '0')}`;
+      lightbox.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    document.getElementById('lightbox-close').addEventListener('click', () => {
+      lightbox.classList.remove('open');
+      document.body.style.overflow = '';
+    });
+
+    lightbox.addEventListener('click', (e) => {
+      if (e.target === lightbox) {
+        lightbox.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        lightbox.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+    });
+
+    document.getElementById('filters').addEventListener('click', (e) => {
+      if (!e.target.matches('.filter-btn')) return;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      renderGallery(e.target.dataset.filter);
+    });
+
+    renderGallery('all');
+  </script>
+</body>
+</html>
